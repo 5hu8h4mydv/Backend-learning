@@ -255,7 +255,7 @@ const changeCurrentPassword = asyncHandler(async(req,res)=>{
 const getCurrentUser = asyncHandler(async(req,res)=>{
     return res
     .status(200)
-    .json(200,req.user,"current user fetched Successfully.")
+    .json(new apiError(200,req.user,"current user fetched Successfully."))
 })
 
 const updateAccountDetails = asyncHandler(async(req,res)=>{
@@ -279,7 +279,146 @@ const updateAccountDetails = asyncHandler(async(req,res)=>{
 })
 
 const updateUserAvater = asyncHandler(async(req,res)=>{
-    
+    const avatarLocalPath = req.file?.path
+
+    if(!avatarLocalPath){
+        throw new apiError(400,"Avatar file is missing.")
+    }
+
+  const avatar = await uploadOnCloudinary(avatarLocalPath)
+
+  if(!avatar.url){
+    throw new apiError(400,"Error while uploading on avatar")
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id
+    ,{
+        $set:{
+            avatar:avatar.url
+        }
+    },
+    {new:true}
+  ).select("-password")
+
+  return res
+         .status(200)
+         .json(
+            new apiError(200,user,"Avatar is updated successfully"))
+
 })
 
-export { registerUser,loginUser,logoutUser ,refreshAccessToken,changeCurrentPassword,getCurrentUser,updateAccountDetails}
+const updateUserCoverImage = asyncHandler(async(req,res)=>{
+    const coverImageLocalPath = req.file?.path
+
+    if(!coverImageLocalPath){
+        throw new apiError(400,"cover Image file is missing.")
+    }
+
+  const coverImage = await uploadOnCloudinary(coverImageLocalPath)
+
+  if(!coverImage.url){
+    throw new apiError(400,"Error while uploading on coverImage")
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id
+    ,{
+        $set:{
+            coverImage:coverImage.url
+        }
+    },
+    {new:true}
+  ).select("-password")
+
+
+  return res
+         .status(200)
+         .json(
+            new apiError(200,user,"cover Image is updated successfully"))
+})
+
+
+const getUserChannelProfile = asyncHandler(async(req,res)=>{
+         const {username} =req.params
+
+         if(!username?.trim){
+            throw new apiError(400,"username is missing.")
+         }
+
+         const channel = await User.aggregate([
+            {
+                $match:{
+                    username:username?.toLowerCase()
+                }
+            },
+            {
+                $lookup:{
+                    from:"subscription",
+                    localField:"_id",
+                    foreignField:"channel",
+                    as:"subscribers"
+                }
+            },
+            {
+                $lookup:{
+                    from:"subscription",
+                    localField:"_id",
+                    foreignField:"subscriber",
+                    as:"subscribedTo"
+                }
+            },
+            {
+                $addFields:{
+                    subsCribersCount:{
+                        $size:"subscribers"
+                    },
+                    channelsSubscribedToCount:{
+                        $size:"subscribedTo"
+                    },
+                    isSubscribed:{
+                        $cond:{
+                             if:{$in:[req.user?._id,"$subscribers.subscriber"]},
+                             then:true,
+                             else:false
+                        }
+                    }
+                }
+            },
+            {
+                $project:{
+                    fullname:1,
+                    username:1,
+                    subsCribersCount:1,
+                    channelsSubscribedToCount:1,
+                    avatar:1,
+                    coverImage:1,
+                    email:1
+
+
+                }
+            }
+        ])
+        // console.log(channel)
+
+        if(!channel?.length){
+            throw new apiError(404,"channel does not exist.")
+        }
+
+        return res
+               .status(200)
+               .json(new apiResponse(200,channel[0],"User Channel fetched successfully."))
+})
+
+export {
+     registerUser,
+     loginUser,
+     logoutUser,
+     refreshAccessToken,
+     changeCurrentPassword,
+     getCurrentUser,
+     updateAccountDetails,
+     updateUserAvater,
+     updateUserCoverImage,
+     getUserChannelProfile  
+}
