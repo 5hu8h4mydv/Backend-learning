@@ -1,5 +1,5 @@
 import mongoose ,{Schema} from "mongoose";
-import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
+import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";     // allows to write you aggregation queries
 
 const videoSchema = new Schema(
     {
@@ -53,6 +53,6 @@ const videoSchema = new Schema(
     }
 )
 
-videoSchema.plugin(mongooseAggregatePaginate)
+videoSchema.plugin(mongooseAggregatePaginate) // plugIn ek middleware h
 
 export const Video = mongoose.model('Video',videoSchema)
